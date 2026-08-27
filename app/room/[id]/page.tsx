@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { Users, CheckCircle2, CircleDashed, Copy, ArrowLeft, Timer, Swords, Shield } from 'lucide-react';
+import GameBoard from '@/components/GameBoard';
 
 type PlayerState = {
   id: string;
@@ -12,6 +13,7 @@ type PlayerState = {
   isReady: boolean;
   joinedAt: string;
   team: 1 | 2 | null;
+  vote?: 'DOUBLE_6' | 'HIGHEST' | null;
 };
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,9 +48,16 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       const userName = data.user.is_anonymous ? `Invitado-${shortId}` : (data.user.user_metadata?.full_name || 'Jugador');
       const uid = data.user.id;
       
-      roomChannel = supabase.channel(`room:${roomCode}`, {
-        config: { presence: { key: uid } }
-      });
+        // Limpiar el canal previo si existe (previene error de Strict Mode en React)
+        supabase.getChannels().forEach(c => {
+          if (c.topic === `realtime:room:${roomCode}`) {
+            supabase.removeChannel(c);
+          }
+        });
+
+        roomChannel = supabase.channel(`room:${roomCode}`, {
+          config: { presence: { key: uid } }
+        });
 
       roomChannel
         .on('presence', { event: 'sync' }, () => {
@@ -56,8 +65,13 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
           const currentPlayers: PlayerState[] = [];
           
           for (const key in state) {
-            const presenceData = state[key][0] as PlayerState;
-            currentPlayers.push(presenceData);
+            const presences = state[key] as PlayerState[];
+            // Evitamos "fantasmas" de Strict Mode tomando siempre la presencia más avanzada
+            const activePresence = presences.find(p => p.vote) 
+                                || presences.find(p => p.team !== null) 
+                                || presences.find(p => p.isReady) 
+                                || presences[0];
+            currentPlayers.push(activePresence);
           }
           
           currentPlayers.sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime());
@@ -91,6 +105,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   useEffect(() => {
     if (allReady && phase === 'LOBBY') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPhase('TEAMS');
       setTimeLeft(30);
       setCountdown(null);
@@ -111,6 +126,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
       if (teamsFull) {
         // Conteo regresivo final de 5s
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (countdown === null) setCountdown(5);
         interval = setInterval(() => {
           setCountdown(prev => {
@@ -172,13 +188,22 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
 
   // --- RENDERIZADO DEL JUEGO (SPRINT 4) ---
   if (phase === 'GAME') {
+    if (!channel || !user) return null;
     return (
-      <main className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <div className="text-center animate-in zoom-in duration-500">
-          <Swords size={64} className="text-emerald-500 mx-auto mb-6" />
-          <h1 className="text-4xl font-black mb-2">¡LA PARTIDA HA INICIADO!</h1>
-          <p className="text-slate-400">Preparando la Mesa Top-Down y Barajeo (Sprint 4)...</p>
+      <main className="min-h-screen bg-slate-950 flex flex-col p-4 md:p-8">
+        {/* Cabecera Pequeña */}
+        <div className="flex items-center justify-between mb-4 px-4">
+          <button onClick={() => router.push('/')} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="text-right">
+            <p className="text-xs text-emerald-400 font-bold uppercase tracking-widest">Sala Activa</p>
+            <p className="text-lg font-black font-mono tracking-widest text-slate-300">{roomCode}</p>
+          </div>
         </div>
+        
+        {/* Mesa de Juego */}
+        <GameBoard channel={channel} user={user} players={players} roomCode={roomCode} />
       </main>
     );
   }
