@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Users, Play, Hash } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roomCode, setRoomCode] = useState('');
+  
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     // Escuchar cambios en la autenticación
@@ -38,6 +42,19 @@ export default function Home() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const handleCreateRoom = () => {
+    // Generar un código aleatorio de 5 caracteres alfanuméricos
+    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+    router.push(`/room/${code}`);
+  };
+
+  const handleJoinRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (roomCode.trim().length >= 3) {
+      router.push(`/room/${roomCode.trim().toUpperCase()}`);
+    }
   };
 
   if (loading) {
@@ -74,25 +91,64 @@ export default function Home() {
         </div>
 
         {user ? (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="p-4 bg-slate-900/50 rounded-xl mb-6 border border-slate-700">
-              <p className="text-sm text-slate-400 mb-1">Conectado como</p>
-              <p className="font-semibold text-lg text-white">
-                {user.is_anonymous ? 'Invitado (Anónimo)' : user.user_metadata?.full_name || user.email || 'Jugador'}
-              </p>
+          // --- DASHBOARD PRINCIPAL SPRINT 2 ---
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+            
+            {/* Perfil del Usuario */}
+            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+              <div className="text-left">
+                <p className="text-xs text-slate-400 uppercase tracking-wider font-bold">Jugador Actual</p>
+                <p className="font-semibold text-white">
+                  {user.is_anonymous ? 'Invitado (Anónimo)' : user.user_metadata?.full_name || 'Jugador'}
+                </p>
+              </div>
+              <button 
+                onClick={handleLogout} 
+                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors border border-transparent hover:border-red-500/20"
+                title="Cerrar Sesión"
+              >
+                <LogOut size={20} />
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="w-full py-3 px-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 border border-red-500/20"
-            >
-              <LogOut size={20} />
-              Cerrar Sesión
-            </button>
-            <div className="pt-6 mt-6 border-t border-slate-700/50">
-              <p className="text-sm text-slate-400">¡Listo para el Sprint 2: Lobby y Salas!</p>
+
+            <div className="grid gap-4 pt-2">
+              <button 
+                onClick={handleCreateRoom}
+                className="w-full py-4 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 shadow-lg shadow-emerald-900/50"
+              >
+                <Play size={24} fill="currentColor" />
+                CREAR SALA NUEVA
+              </button>
+              
+              <div className="relative flex items-center justify-center py-2">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-700"></div></div>
+                <span className="relative bg-slate-800 px-4 text-xs text-slate-500 font-bold uppercase tracking-widest">O únete a una</span>
+              </div>
+
+              <form onSubmit={handleJoinRoom} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                  <input 
+                    type="text" 
+                    placeholder="CÓDIGO" 
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                    maxLength={5}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-slate-500 font-mono font-bold focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all uppercase"
+                  />
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={roomCode.length < 3} 
+                  className="px-6 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:hover:bg-slate-700 text-white rounded-xl font-bold transition-colors"
+                >
+                  UNIRSE
+                </button>
+              </form>
             </div>
           </div>
         ) : (
+          // --- PANTALLA DE LOGIN SPRINT 1 ---
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <button
               onClick={handleGoogleLogin}
