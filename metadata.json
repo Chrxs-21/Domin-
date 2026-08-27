@@ -1,0 +1,6 @@
+{
+  "name": "Dominó Venezolano",
+  "description": "Juego de Dominó online multijugador con reglas tradicionales venezolanas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
